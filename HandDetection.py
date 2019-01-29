@@ -105,6 +105,7 @@ while(1):
     hull2 = cv2.convexHull(cnts,returnPoints = False)
     defects = cv2.convexityDefects(cnts,hull2)
     
+"""
     #Get defect points and draw them in the original image
     FarDefect = []
     for i in range(defects.shape[0]):
@@ -166,7 +167,7 @@ while(1):
     for i in range(0,len(fingers)):
         if fingerDistance[i] > AverageDefectDistance+130:
             result = result +1
-    
+"""    
     #Print number of pointed fingers
     ###cv2.putText(frame,str(result),(100,100),font,2,(255,255,255),2)
     
