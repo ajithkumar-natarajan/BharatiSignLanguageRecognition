@@ -27,7 +27,7 @@ def FindDistance(A,B):
  
 
 # Creating a window for HSV track bars
-cv2.namedWindow('HSV_TrackBar')
+###cv2.namedWindow('HSV_TrackBar')
 
 # Starting with 100's to prevent error while masking
 h,s,v = 100,100,100
@@ -46,6 +46,8 @@ while(1):
     
     #Capture frames from the camera
     ret, frame = cap.read()
+
+    frame = cv2.flip(frame, 1)
     
     #Blur the image
     blur = cv2.blur(frame,(3,3))
@@ -55,7 +57,7 @@ while(1):
     
     #Create a binary image with where white will be skin colors and rest is black
     mask2 = cv2.inRange(hsv,np.array([2,50,50]),np.array([15,255,255]))
-    #cv2.imshow("thresholded", mask2)
+    cv2.imshow("thresholded", mask2)
     
     #Kernel matrices for morphological transformation    
     kernel_square = np.ones((11,11),np.uint8)
@@ -92,8 +94,9 @@ while(1):
             max_area=area
             ci=i  
             
-	#Largest area contour 			  
-    cnts = contours[ci]
+	#Largest area contour 	
+    if(ci<len(contours)):		  
+        cnts = contours[ci]
 
     #Find convex hull
     hull = cv2.convexHull(cnts)
@@ -191,7 +194,8 @@ while(1):
     
     #Create a binary image with where white will be skin colors and rest is black
     mask2 = cv2.inRange(hsv,np.array([2,50,50]),np.array([15,255,255]))
-    cv2.imshow("thresholded", frame)
+    # cv2.imshow("thresholded", frame)
+    del cropped_frame
     
     cv2.drawContours(frame,[hull],-1,(255,255,255),2)
     
