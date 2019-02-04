@@ -27,7 +27,7 @@ def FindDistance(A,B):
  
 
 # Creating a window for HSV track bars
-###cv2.namedWindow('HSV_TrackBar')
+#cv2.namedWindow('HSV_TrackBar')
 
 # Starting with 100's to prevent error while masking
 h,s,v = 100,100,100
@@ -46,9 +46,8 @@ while(1):
     
     #Capture frames from the camera
     ret, frame = cap.read()
-
     frame = cv2.flip(frame, 1)
-    
+
     #Blur the image
     blur = cv2.blur(frame,(3,3))
  	
@@ -57,7 +56,7 @@ while(1):
     
     #Create a binary image with where white will be skin colors and rest is black
     mask2 = cv2.inRange(hsv,np.array([2,50,50]),np.array([15,255,255]))
-    cv2.imshow("thresholded", mask2)
+    #cv2.imshow("thresholded", mask2)
     
     #Kernel matrices for morphological transformation    
     kernel_square = np.ones((11,11),np.uint8)
@@ -86,7 +85,8 @@ while(1):
     
 	#Find Max contour area (Assume that hand is in the frame)
     max_area=100
-    ci=0	
+    ci=0
+    	
     for i in range(len(contours)):
         cnt=contours[i]
         area = cv2.contourArea(cnt)
@@ -94,10 +94,11 @@ while(1):
             max_area=area
             ci=i  
             
-	#Largest area contour 	
-    if(ci<len(contours)):		  
+	#Largest area contour
+	
+    if(ci < len(contours)):		 			  
         cnts = contours[ci]
-
+    	
     #Find convex hull
     hull = cv2.convexHull(cnts)
     
@@ -106,66 +107,7 @@ while(1):
     defects = cv2.convexityDefects(cnts,hull2)
     
     #Get defect points and draw them in the original image
-    FarDefect = []
-    for i in range(defects.shape[0]):
-        s,e,f,d = defects[i,0]
-        start = tuple(cnts[s][0])
-        end = tuple(cnts[e][0])
-        far = tuple(cnts[f][0])
-        FarDefect.append(far)
-        cv2.line(frame,start,end,[0,255,0],1)
-        cv2.circle(frame,far,10,[100,255,255],3)
     
-	#Find moments of the largest contour
-    moments = cv2.moments(cnts)
-    
-    #Central mass of first order moments
-    if moments['m00']!=0:
-        cx = int(moments['m10']/moments['m00']) # cx = M10/M00
-        cy = int(moments['m01']/moments['m00']) # cy = M01/M00
-    centerMass=(cx,cy)    
-    
-    #Draw center mass
-    cv2.circle(frame,centerMass,7,[100,0,255],2)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(frame,'Center',tuple(centerMass),font,2,(255,255,255),2)     
-    
-    #Distance from each finger defect(finger webbing) to the center mass
-    distanceBetweenDefectsToCenter = []
-    for i in range(0,len(FarDefect)):
-        x =  np.array(FarDefect[i])
-        centerMass = np.array(centerMass)
-        distance = np.sqrt(np.power(x[0]-centerMass[0],2)+np.power(x[1]-centerMass[1],2))
-        distanceBetweenDefectsToCenter.append(distance)
-    
-    #Get an average of three shortest distances from finger webbing to center mass
-    sortedDefectsDistances = sorted(distanceBetweenDefectsToCenter)
-    AverageDefectDistance = np.mean(sortedDefectsDistances[0:2])
- 
-    #Get fingertip points from contour hull
-    #If points are in proximity of 80 pixels, consider as a single point in the group
-    finger = []
-    for i in range(0,len(hull)-1):
-        if (np.absolute(hull[i][0][0] - hull[i+1][0][0]) > 80) or ( np.absolute(hull[i][0][1] - hull[i+1][0][1]) > 80):
-            if hull[i][0][1] <500 :
-                finger.append(hull[i][0])
-    
-    #The fingertip points are 5 hull points with largest y coordinates  
-    finger =  sorted(finger,key=lambda x: x[1])   
-    fingers = finger[0:5]
-    
-    #Calculate distance of each finger tip to the center mass
-    fingerDistance = []
-    for i in range(0,len(fingers)):
-        distance = np.sqrt(np.power(fingers[i][0]-centerMass[0],2)+np.power(fingers[i][1]-centerMass[0],2))
-        fingerDistance.append(distance)
-    
-    #Finger is pointed/raised if the distance of between fingertip to the center mass is larger
-    #than the distance of average finger webbing to center mass by 130 pixels
-    result = 0
-    for i in range(0,len(fingers)):
-        if fingerDistance[i] > AverageDefectDistance+130:
-            result = result +1
     
     #Print number of pointed fingers
     ###cv2.putText(frame,str(result),(100,100),font,2,(255,255,255),2)
@@ -194,8 +136,12 @@ while(1):
     
     #Create a binary image with where white will be skin colors and rest is black
     mask2 = cv2.inRange(hsv,np.array([2,50,50]),np.array([15,255,255]))
-    # cv2.imshow("thresholded", frame)
-    del cropped_frame
+    
+    resize_mask2 = cv2.resize(mask2, (500,500))
+    cv2.imshow("thresholded", resize_mask2)
+    #fx = 500/w
+    #fy = 500/h
+    cv2.resizeWindow("thresholded",500,500)
     
     cv2.drawContours(frame,[hull],-1,(255,255,255),2)
     
