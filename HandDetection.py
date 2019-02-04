@@ -195,8 +195,10 @@ while(1):
     
     #Create a binary image with where white will be skin colors and rest is black
     mask2 = cv2.inRange(hsv,np.array([2,50,50]),np.array([15,255,255]))
-    # cv2.imshow("thresholded", frame)
-    del cropped_frame
+    resized_mask2 = cv2.resize(mask2, (500,500))
+    cv2.imshow("thresholded", resized_mask2)
+#     cv2.imshow("thresholded", mask2)
+#     del cropped_frame
     
     cv2.drawContours(frame,[hull],-1,(255,255,255),2)
     
