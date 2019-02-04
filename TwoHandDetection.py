@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Feb  4 17:51:37 2019
+
+@author: harshith srinivas
+"""
+
 import cv2
 import numpy as np
 import time
@@ -10,7 +17,7 @@ cascPath = "haarcascade_frontalface_default.xml"
 faceCascade = cv2.CascadeClassifier(cascPath)
 #log.basicConfig(filename='webcam.log',level=log.INFO)
 
-video_capture = cv2.VideoCapture(0)
+video_capture = cv2.VideoCapture(1)
 anterior = 0
 
 # When everything is done, release the capture
@@ -77,7 +84,7 @@ while(1):
 
     # Draw a rectangle around the faces
     for (x, y, w, h) in faces:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+        #cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
         width = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         left_image = frame[0:height, 0:x+int((w/2))]
@@ -92,14 +99,14 @@ while(1):
 
 
     # Display the resulting frame
-    cv2.imshow('Video', frame)
+    #cv2.imshow('Video', frame)
 
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
     # Display the resulting frame
-    cv2.imshow('Video', frame)
+    #cv2.imshow('Video', frame)
 
 #while(1):
 
@@ -171,24 +178,84 @@ while(1):
     defects = cv2.convexityDefects(cnts,hull2)
     
     #Get defect points and draw them in the original image
+    FarDefect = []
+    for i in range(defects.shape[0]):
+        s,e,f,d = defects[i,0]
+        start = tuple(cnts[s][0])
+        end = tuple(cnts[e][0])
+        far = tuple(cnts[f][0])
+        FarDefect.append(far)
+        cv2.line(frame_left,start,end,[0,255,0],1)
+        cv2.circle(frame_left,far,10,[100,255,255],3)
     
+	#Find moments of the largest contour
+    moments = cv2.moments(cnts)
+    
+    #Central mass of first order moments
+    if moments['m00']!=0:
+        cx = int(moments['m10']/moments['m00']) # cx = M10/M00
+        cy = int(moments['m01']/moments['m00']) # cy = M01/M00
+    centerMass=(cx,cy)    
+    
+    #Draw center mass
+    cv2.circle(frame_left,centerMass,7,[100,0,255],2)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(frame_left,'Center',tuple(centerMass),font,2,(255,255,255),2)     
+    
+    #Distance from each finger defect(finger webbing) to the center mass
+    distanceBetweenDefectsToCenter = []
+    for i in range(0,len(FarDefect)):
+        x =  np.array(FarDefect[i])
+        centerMass = np.array(centerMass)
+        distance = np.sqrt(np.power(x[0]-centerMass[0],2)+np.power(x[1]-centerMass[1],2))
+        distanceBetweenDefectsToCenter.append(distance)
+    
+    #Get an average of three shortest distances from finger webbing to center mass
+    sortedDefectsDistances = sorted(distanceBetweenDefectsToCenter)
+    AverageDefectDistance = np.mean(sortedDefectsDistances[0:2])
+ 
+    #Get fingertip points from contour hull
+    #If points are in proximity of 80 pixels, consider as a single point in the group
+    finger = []
+    for i in range(0,len(hull)-1):
+        if (np.absolute(hull[i][0][0] - hull[i+1][0][0]) > 80) or ( np.absolute(hull[i][0][1] - hull[i+1][0][1]) > 80):
+            if hull[i][0][1] <500 :
+                finger.append(hull[i][0])
+    
+    #The fingertip points are 5 hull points with largest y coordinates  
+    finger =  sorted(finger,key=lambda x: x[1])   
+    fingers = finger[0:5]
+    
+    #Calculate distance of each finger tip to the center mass
+    fingerDistance = []
+    for i in range(0,len(fingers)):
+        distance = np.sqrt(np.power(fingers[i][0]-centerMass[0],2)+np.power(fingers[i][1]-centerMass[0],2))
+        fingerDistance.append(distance)
+    
+    #Finger is pointed/raised if the distance of between fingertip to the center mass is larger
+    #than the distance of average finger webbing to center mass by 130 pixels
+    result = 0
+    for i in range(0,len(fingers)):
+        if fingerDistance[i] > AverageDefectDistance+130:
+            result = result +1
     
     #Print number of pointed fingers
-    ###cv2.putText(frame,str(result),(100,100),font,2,(255,255,255),2)
+    ###cv2.putText(frame_left,str(result),(100,100),font,2,(255,255,255),2)
     
     #show height raised fingers
-    #cv2.putText(frame,'finger1',tuple(finger[0]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger2',tuple(finger[1]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger3',tuple(finger[2]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger4',tuple(finger[3]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger5',tuple(finger[4]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger6',tuple(finger[5]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger7',tuple(finger[6]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger8',tuple(finger[7]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger1',tuple(finger[0]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger2',tuple(finger[1]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger3',tuple(finger[2]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger4',tuple(finger[3]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger5',tuple(finger[4]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger6',tuple(finger[5]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger7',tuple(finger[6]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger8',tuple(finger[7]),font,2,(255,255,255),2)
         
     #Print bounding rectangle
     x,y,w,h = cv2.boundingRect(cnts)
     img = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
+    img = cv2.rectangle(frame_left,(x,y),(x+w,y+h),(0,255,0),2)
 
     cropped_frame = img[y:y+h, x:x+w]
     
@@ -206,9 +273,6 @@ while(1):
     #fx = 500/w
     #fy = 500/h
     cv2.resizeWindow("thresholded_left",300,300)
-
-    
-        
     
     
     
@@ -217,26 +281,47 @@ while(1):
     
     
     
-    frame_right = right_image
-    blur_right = cv2.blur(frame_right,(3,3))
-    hsv_right = cv2.cvtColor(blur_right,cv2.COLOR_BGR2HSV)
-    mask2_right = cv2.inRange(hsv_right,np.array([2,50,50]),np.array([15,255,255]))
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    #Capture frames from the camera
+    frame_left = right_image
+    
+    #Blur the image
+    blur_left = cv2.blur(frame_left,(3,3))
+ 	
+    #Convert to HSV color space
+    hsv_left = cv2.cvtColor(blur_left,cv2.COLOR_BGR2HSV)
+    
+    #Create a binary image with where white will be skin colors and rest is black
+    mask2_left = cv2.inRange(hsv_left,np.array([2,50,50]),np.array([15,255,255]))
+    #cv2.imshow("thresholded", mask2)
+    
+    
     #Perform morphological transformations to filter out the background noise
     #Dilation increase skin color area
     #Erosion increase skin color area
-    dilation_right = cv2.dilate(mask2_right,kernel_ellipse,iterations = 1)
-    erosion_right = cv2.erode(dilation_right,kernel_square,iterations = 1)    
-    dilation2_right = cv2.dilate(erosion_right,kernel_ellipse,iterations = 1)    
-    filtered_right = cv2.medianBlur(dilation2_right,5)
+    dilation_left = cv2.dilate(mask2_left,kernel_ellipse,iterations = 1)
+    erosion_left = cv2.erode(dilation_left,kernel_square,iterations = 1)    
+    dilation2_left = cv2.dilate(erosion_left,kernel_ellipse,iterations = 1)    
+    filtered_left = cv2.medianBlur(dilation2_left,5)
     kernel_ellipse= cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(8,8))
-    dilation2_right = cv2.dilate(filtered_right,kernel_ellipse,iterations = 1)
+    dilation2_left = cv2.dilate(filtered_left,kernel_ellipse,iterations = 1)
     kernel_ellipse= cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5))
-    dilation3_right = cv2.dilate(filtered_right,kernel_ellipse,iterations = 1)
-    median_right = cv2.medianBlur(dilation2_right,5)
-    ret,thresh_right = cv2.threshold(median_right,127,255,0)
+    dilation3_left = cv2.dilate(filtered_left,kernel_ellipse,iterations = 1)
+    median_left = cv2.medianBlur(dilation2_left,5)
+    ret,thresh_left = cv2.threshold(median_left,127,255,0)
     
     #Find contours of the filtered frame
-    contours_right, hierarchy = cv2.findContours(thresh_right,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)   
+    contours_left, hierarchy = cv2.findContours(thresh_left,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)   
     
     #Draw Contours
     #cv2.drawContours(frame, cnt, -1, (122,122,0), 3)
@@ -246,8 +331,8 @@ while(1):
     max_area=100
     ci=0
     	
-    for i in range(len(contours_right)):
-        cnt=contours_right[i]
+    for i in range(len(contours_left)):
+        cnt=contours_left[i]
         area = cv2.contourArea(cnt)
         if(area>max_area):
             max_area=area
@@ -255,8 +340,8 @@ while(1):
             
 	#Largest area contour
 	
-    if(ci < len(contours_right)):		 			  
-        cnts = contours_right[ci]
+    if(ci < len(contours_left)):		 			  
+        cnts = contours_left[ci]
     	
     #Find convex hull
     hull = cv2.convexHull(cnts)
@@ -266,27 +351,86 @@ while(1):
     defects = cv2.convexityDefects(cnts,hull2)
     
     #Get defect points and draw them in the original image
+    FarDefect = []
+    for i in range(defects.shape[0]):
+        s,e,f,d = defects[i,0]
+        start = tuple(cnts[s][0])
+        end = tuple(cnts[e][0])
+        far = tuple(cnts[f][0])
+        FarDefect.append(far)
+        cv2.line(frame_left,start,end,[0,255,0],1)
+        cv2.circle(frame_left,far,10,[100,255,255],3)
     
+	#Find moments of the largest contour
+    moments = cv2.moments(cnts)
+    
+    #Central mass of first order moments
+    if moments['m00']!=0:
+        cx = int(moments['m10']/moments['m00']) # cx = M10/M00
+        cy = int(moments['m01']/moments['m00']) # cy = M01/M00
+    centerMass=(cx,cy)    
+    
+    #Draw center mass
+    cv2.circle(frame_left,centerMass,7,[100,0,255],2)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(frame_left,'Center',tuple(centerMass),font,2,(255,255,255),2)     
+    
+    #Distance from each finger defect(finger webbing) to the center mass
+    distanceBetweenDefectsToCenter = []
+    for i in range(0,len(FarDefect)):
+        x =  np.array(FarDefect[i])
+        centerMass = np.array(centerMass)
+        distance = np.sqrt(np.power(x[0]-centerMass[0],2)+np.power(x[1]-centerMass[1],2))
+        distanceBetweenDefectsToCenter.append(distance)
+    
+    #Get an average of three shortest distances from finger webbing to center mass
+    sortedDefectsDistances = sorted(distanceBetweenDefectsToCenter)
+    AverageDefectDistance = np.mean(sortedDefectsDistances[0:2])
+ 
+    #Get fingertip points from contour hull
+    #If points are in proximity of 80 pixels, consider as a single point in the group
+    finger = []
+    for i in range(0,len(hull)-1):
+        if (np.absolute(hull[i][0][0] - hull[i+1][0][0]) > 80) or ( np.absolute(hull[i][0][1] - hull[i+1][0][1]) > 80):
+            if hull[i][0][1] <500 :
+                finger.append(hull[i][0])
+    
+    #The fingertip points are 5 hull points with largest y coordinates  
+    finger =  sorted(finger,key=lambda x: x[1])   
+    fingers = finger[0:5]
+    
+    #Calculate distance of each finger tip to the center mass
+    fingerDistance = []
+    for i in range(0,len(fingers)):
+        distance = np.sqrt(np.power(fingers[i][0]-centerMass[0],2)+np.power(fingers[i][1]-centerMass[0],2))
+        fingerDistance.append(distance)
+    
+    #Finger is pointed/raised if the distance of between fingertip to the center mass is larger
+    #than the distance of average finger webbing to center mass by 130 pixels
+    result = 0
+    for i in range(0,len(fingers)):
+        if fingerDistance[i] > AverageDefectDistance+130:
+            result = result +1
     
     #Print number of pointed fingers
-    ###cv2.putText(frame,str(result),(100,100),font,2,(255,255,255),2)
+    ###cv2.putText(frame_left,str(result),(100,100),font,2,(255,255,255),2)
     
     #show height raised fingers
-    #cv2.putText(frame,'finger1',tuple(finger[0]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger2',tuple(finger[1]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger3',tuple(finger[2]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger4',tuple(finger[3]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger5',tuple(finger[4]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger6',tuple(finger[5]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger7',tuple(finger[6]),font,2,(255,255,255),2)
-    #cv2.putText(frame,'finger8',tuple(finger[7]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger1',tuple(finger[0]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger2',tuple(finger[1]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger3',tuple(finger[2]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger4',tuple(finger[3]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger5',tuple(finger[4]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger6',tuple(finger[5]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger7',tuple(finger[6]),font,2,(255,255,255),2)
+    #cv2.putText(frame_left,'finger8',tuple(finger[7]),font,2,(255,255,255),2)
         
     #Print bounding rectangle
     x,y,w,h = cv2.boundingRect(cnts)
     img = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
+    img = cv2.rectangle(frame_left,(x,y),(x+w,y+h),(0,255,0),2)
 
     cropped_frame = img[y:y+h, x:x+w]
-    cv2.imwrite("rightHand.png",cropped_frame)
     
     #Blur the image
     blur = cv2.blur(cropped_frame,(3,3))
@@ -297,25 +441,12 @@ while(1):
     #Create a binary image with where white will be skin colors and rest is black
     mask2 = cv2.inRange(hsv,np.array([2,50,50]),np.array([15,255,255]))
     
-    resize_mask2_right = cv2.resize(mask2, (300,300))
-    cv2.imshow("thresholded_right", resize_mask2_right)
+    resize_mask2_left = cv2.resize(mask2, (300,300))
+    cv2.imshow("thresholded_right", resize_mask2_left)
     #fx = 500/w
     #fy = 500/h
     cv2.resizeWindow("thresholded_right",300,300)
-    
-    #cv2.drawContours(frame,[hull],-1,(255,255,255),2)
-    
-    ##### Show final image ########
-    #cv2.imshow('Hand detection',frame)
-    ###############################
-    
-    #Print execution time
-    #print time.time()-start_time
-    
-    #close the output video by pressing 'ESC'
-    k = cv2.waitKey(5) & 0xFF
-    if k == 27:
-        break
 
-video_capture.release()
-cv2.destroyAllWindows()
+    # Display the resulting frame
+    cv2.imshow('Video', frame)
+        
