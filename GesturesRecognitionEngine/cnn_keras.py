@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import cv2, os
+import tensorflow as tf
 from keras import optimizers
 from keras.models import Sequential
 from keras.layers import Dense
@@ -12,7 +13,6 @@ from keras.utils import np_utils
 from keras.callbacks import ModelCheckpoint
 from keras import backend as K
 K.set_image_dim_ordering('tf')
-import tensorflow as tf
 
 config = tf.ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.4
@@ -70,7 +70,7 @@ def train():
 
 	model, callbacks_list = cnn_model()
 	model.summary()
-	model.fit(train_images, train_labels, validation_data=(test_images, test_labels), epochs=20, batch_size=500, callbacks=callbacks_list)
+	model.fit(train_images, train_labels, validation_data=(test_images, test_labels), epochs=10, batch_size=500, callbacks=callbacks_list)
 	scores = model.evaluate(test_images, test_labels, verbose=0)
 	print("CNN Error: %.2f%%" % (100-scores[1]*100))
 	#model.save('cnn_model_keras2.h5')

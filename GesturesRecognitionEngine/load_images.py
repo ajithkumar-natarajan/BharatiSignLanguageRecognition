@@ -5,7 +5,7 @@ from sklearn.utils import shuffle
 import pickle
 
 def pickle_images_labels():
-	gest_folder = "gestures"
+	gest_folder = "customized_gestures"
 	images_labels = []
 	images = []
 	labels = []
