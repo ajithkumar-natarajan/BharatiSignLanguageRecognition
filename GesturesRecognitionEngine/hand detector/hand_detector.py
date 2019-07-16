@@ -93,6 +93,9 @@ if __name__ == '__main__':
     num_frames = 0
     fps = 0
     index = 0
+    coord =[]
+    lab=range(1,10)
+    pos_flag=0
 
     cv2.namedWindow('Hand Tracker', cv2.WINDOW_NORMAL)
     
@@ -101,10 +104,11 @@ if __name__ == '__main__':
     sess = tf.Session(graph=detection_graph)
     
     while True:
-        frame = video_capture.read()
+        frame= video_capture.read()[1]
         frame = cv2.flip(frame,1)
         index += 1
-
+        key=cv2.waitKey(1)
+        
         input_q=(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         frame = input_q
         if (frame is not None):
@@ -115,14 +119,23 @@ if __name__ == '__main__':
             boxes, scores = detector_utils.detect_objects(
                 frame, detection_graph, sess)
             # draw bounding boxes
-            P1,P2=detector_utils.draw_box_on_image(
+            X,Y=detector_utils.draw_box_on_image(
                 cap_params['num_hands_detect'], cap_params["score_thresh"],
                 scores, boxes, cap_params['im_width'], cap_params['im_height'],
                 frame)
-            
             # add frame annotated with bounding box to queue
             output_q=frame
             frame_processed += 1
+            
+            if key & 0xFF == ord('c'):
+                coord.append([X,Y])
+            elif key & 0xFF == ord('r'):
+                from sklearn.svm import SVC
+                clf=SVC(kernel='linear')
+                clf.fit(coord,lab)
+                pos_flag=1
+                
+                
         else:
             output_q=frame
             
@@ -137,11 +150,16 @@ if __name__ == '__main__':
 
         if (output_frame is not None):
             if (args.display > 0):
-                if (args.fps > 0):
-                    detector_utils.draw_fps_on_image("FPS : " + str(int(fps)),
+#                if (args.fps > 0):
+#                    detector_utils.draw_fps_on_image("FPS : " + str(int(fps)),
+#                                                     output_frame)
+                coord_test = [[X,Y]]
+                if pos_flag==1:
+                    pos=clf.predict(coord_test)[0]
+                    detector_utils.draw_fps_on_image("Position : " + str(int(pos)),
                                                      output_frame)
                 cv2.imshow('Hand Tracker', output_frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if key & 0xFF == ord('q'):
                     break  
             else:
                 if (num_frames == 400):
@@ -153,13 +171,12 @@ if __name__ == '__main__':
         else:
             # print("video end")
             break
-    key = cv2.waitKey(0)
-    f=open("coord.txt","a")
-    f.write('%d\t%d\t%d\t%d\n'% (P1[0],P1[1],P2[0],P2[1]))
-    f.close()
+
     elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
     fps = num_frames / elapsed_time
     print("fps", fps)
     sess.close()
     video_capture.stop()
     cv2.destroyAllWindows()
+
+del video_capture

@@ -136,7 +136,7 @@ class WebcamVideoStream:
 
     def read(self):
         # return the frame most recently read
-        return self.frame
+        return self.frame,self.grabbed
 
     def size(self):
         # return size of the capture device
