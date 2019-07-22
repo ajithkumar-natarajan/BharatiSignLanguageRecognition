@@ -94,8 +94,10 @@ if __name__ == '__main__':
     fps = 0
     index = 0
     coord =[]
-    lab=range(1,10)
-    pos_flag=0
+    lab=range(1,10) #1-9positions
+    pos_flag=0 #Once trained, flag becomes 1 to display position on screen
+    roi_num=1 #frame saved number of ROI
+    fold=0 #0-4 gestures' folder
 
     cv2.namedWindow('Hand Tracker', cv2.WINDOW_NORMAL)
     
@@ -107,7 +109,7 @@ if __name__ == '__main__':
         frame= video_capture.read()[1]
         frame = cv2.flip(frame,1)
         index += 1
-        key=cv2.waitKey(1)
+        key=cv2.waitKey(1) #c-append coordinates r-train SVM q-exit
         
         input_q=(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         frame = input_q
@@ -119,21 +121,37 @@ if __name__ == '__main__':
             boxes, scores = detector_utils.detect_objects(
                 frame, detection_graph, sess)
             # draw bounding boxes
-            X,Y=detector_utils.draw_box_on_image(
+            X,Y,ROI=detector_utils.draw_box_on_image(
                 cap_params['num_hands_detect'], cap_params["score_thresh"],
                 scores, boxes, cap_params['im_width'], cap_params['im_height'],
                 frame)
             # add frame annotated with bounding box to queue
             output_q=frame
             frame_processed += 1
+            if (X,Y)==(0,0):
+                    continue
+            else:
+                cv2.imwrite("gestures_train_images/" + str(fold) + "/" + str(roi_num) + ".jpg",ROI)
+                roi_num=roi_num+1
             
             if key & 0xFF == ord('c'):
-                coord.append([X,Y])
+                if (X,Y)==(0,0):
+                    continue
+                else:
+                    coord.append([X,Y])
             elif key & 0xFF == ord('r'):
                 from sklearn.svm import SVC
                 clf=SVC(kernel='linear')
                 clf.fit(coord,lab)
                 pos_flag=1
+                
+#            elif key & 0xFF == ord('h'):
+#                if (X,Y)==(0,0):
+#                    continue
+#                else:
+#                    cv2.imwrite("gestures_train_images/" + str(fold) + "/" + str(roi_num) + ".jpg",ROI)
+#                    roi_num=roi_num+1
+
                 
                 
         else:

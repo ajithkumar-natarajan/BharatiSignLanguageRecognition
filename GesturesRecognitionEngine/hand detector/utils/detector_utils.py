@@ -9,6 +9,7 @@ from datetime import datetime
 import cv2
 from utils import label_map_util
 from collections import defaultdict
+import sys
 
 
 detection_graph = tf.Graph()
@@ -57,10 +58,15 @@ def draw_box_on_image(num_hands_detect, score_thresh, scores, boxes, im_width, i
                                           boxes[i][0] * im_height, boxes[i][2] * im_height)
             p1 = (int(left), int(top))
             p2 = (int(right), int(bottom))
+            x,y= (p1[0]+p2[0])/2, (p1[1]+p2[1])/2
+            crop=image_np[int(top):int(bottom),int(left):int(right)]
+#            crop=image_np[p1,p2]
+            roi=(cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY))
+            roi=cv2.resize(roi,(50,50))
             cv2.rectangle(image_np, p1, p2, (77, 255, 9), 3, 1)
-            return(p1,p2)
+            return(x,y,roi)
         else:
-            return([0,0],[0,0])
+            return(0,0,0)
             
 #def get_boundary(num_hands_detect, score_thresh, scores, boxes, im_width, im_height, image_np):
 #     for i in range(num_hands_detect):
@@ -113,6 +119,7 @@ class WebcamVideoStream:
         self.stream = cv2.VideoCapture(src)
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+#        a=self.stream.read()
         (self.grabbed, self.frame) = self.stream.read()
 
         # initialize the variable used to indicate if the thread should
@@ -132,11 +139,11 @@ class WebcamVideoStream:
                 return
 
             # otherwise, read the next frame from the stream
-            (self.grabbed, self.frame) = self.stream.read()
+            (self.frame) = self.stream.read()
 
     def read(self):
         # return the frame most recently read
-        return self.frame,self.grabbed
+        return self.frame
 
     def size(self):
         # return size of the capture device
@@ -145,3 +152,5 @@ class WebcamVideoStream:
     def stop(self):
         # indicate that the thread should be stopped
         self.stopped = True
+
+del label_map_util

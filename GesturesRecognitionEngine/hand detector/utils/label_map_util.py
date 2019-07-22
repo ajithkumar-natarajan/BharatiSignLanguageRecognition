@@ -20,6 +20,7 @@ import logging
 import tensorflow as tf
 from google.protobuf import text_format
 from protos import string_int_label_map_pb2
+import sys
 
 
 def _validate_label_map(label_map):
@@ -138,3 +139,4 @@ def get_label_map_dict(label_map_path):
     for item in label_map.item:
         label_map_dict[item.name] = item.id
     return label_map_dict
+
