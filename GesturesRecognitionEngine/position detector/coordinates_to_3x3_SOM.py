@@ -1,0 +1,186 @@
+from utils import detector_utils as detector_utils
+import cv2
+import tensorflow as tf
+from utils.detector_utils import WebcamVideoStream
+import datetime
+import argparse
+import numpy as np
+from scipy.spatial.distance import pdist
+
+frame_processed = 0
+score_thresh = 0.2
+    
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-src',
+        '--source',
+        dest='video_source',
+        type=int,
+        default=0,
+        help='Device index of the camera.')
+    parser.add_argument(
+        '-nhands',
+        '--num_hands',
+        dest='num_hands',
+        type=int,
+        default=2,
+        help='Max number of hands to detect.')
+    parser.add_argument(
+        '-fps',
+        '--fps',
+        dest='fps',
+        type=int,
+        default=1,
+        help='Show FPS on detection/display visualization')
+    parser.add_argument(
+        '-wd',
+        '--width',
+        dest='width',
+        type=int,
+        default=300,
+        help='Width of the frames in the video stream.')
+    parser.add_argument(
+        '-ht',
+        '--height',
+        dest='height',
+        type=int,
+        default=200,
+        help='Height of the frames in the video stream.')
+    parser.add_argument(
+        '-ds',
+        '--display',
+        dest='display',
+        type=int,
+        default=1,
+        help='Display the detected images using OpenCV. This reduces FPS')
+    parser.add_argument(
+        '-num-w',
+        '--num-workers',
+        dest='num_workers',
+        type=int,
+        default=4,
+        help='Number of workers.')
+    parser.add_argument(
+        '-q-size',
+        '--queue-size',
+        dest='queue_size',
+        type=int,
+        default=5,
+        help='Size of the queue.')
+    args = parser.parse_args()
+
+    video_capture = WebcamVideoStream(
+        src=args.video_source, width=args.width, height=args.height).start()
+
+    cap_params = {}
+    frame_processed = 0
+    cap_params['im_width'], cap_params['im_height'] = video_capture.size()
+    cap_params['score_thresh'] = score_thresh
+
+    # max number of hands we want to detect/track
+    cap_params['num_hands_detect'] = args.num_hands
+
+    print(cap_params, args)
+
+    start_time = datetime.datetime.now()
+    num_frames = 0
+    fps = 0
+    index = 0
+    coord =[]
+    lab=1
+    cap_flag=False
+    Coord_old=[0,0]
+    vel=[]
+    X,Y=0,0
+    cv2.namedWindow('Hand Tracker', cv2.WINDOW_NORMAL)
+    
+    print(">> loading frozen model for worker")
+    detection_graph, sess = detector_utils.load_inference_graph()
+    sess = tf.Session(graph=detection_graph)
+    
+    while True:
+        frame= video_capture.read()[1]
+        frame = cv2.flip(frame,1)
+        index += 1
+        key=cv2.waitKey(1) #c-append coordinates r-train SVM q-exit
+        
+        input_q=(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        frame = input_q
+        if (frame is not None):
+            # Actual detection. Variable boxes contains the bounding box cordinates for hands detected,
+            # while scores contains the confidence for each of these boxes.
+            # Hint: If len(boxes) > 1 , you may assume you have found atleast one hand (within your score threshold)
+
+            boxes, scores = detector_utils.detect_objects(
+                frame, detection_graph, sess)
+            # draw bounding boxes
+            X,Y,ROI,det_flag=detector_utils.draw_box_on_image(
+                cap_params['num_hands_detect'], cap_params["score_thresh"],
+                scores, boxes, cap_params['im_width'], cap_params['im_height'],
+                frame,X,Y)
+            # add frame annotated with bounding box to queue
+            output_q=frame
+            frame_processed += 1
+            if key & 0xFF == ord('c'):
+                cap_flag=True
+            if key & 0xFF == ord('s'):
+                cap_flag=False
+                lab=lab+1
+            if cap_flag==True:
+                if (X,Y)==(0,0):
+                    continue
+                else:
+                    coord.append([X,Y,lab])
+        else:
+            output_q=frame
+            
+        output_frame = output_q
+
+        output_frame = cv2.cvtColor(output_frame, cv2.COLOR_RGB2BGR)
+
+        elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
+        num_frames += 1
+        fps = num_frames / elapsed_time
+        # print("frame ",  index, num_frames, elapsed_time, fps)
+        
+        Coord=[X,Y]
+        vel_cur=pdist([Coord_old,Coord])
+        if vel_cur==0:
+            vel.append(20)
+        else:
+            vel.append(vel_cur)
+        Coord_old=Coord
+
+        if (output_frame is not None):
+            if (args.display > 0):
+                if (args.fps > 0):
+                    detector_utils.draw_fps_on_image("FPS : " + str(int(fps)),
+                                                     output_frame)
+
+                cv2.imshow('Hand Tracker', output_frame)
+                if key & 0xFF == ord('q'):
+                    break  
+            else:
+                if (num_frames == 400):
+                    num_frames = 0
+                    start_time = datetime.datetime.now()
+                else:
+                    print("frames processed: ", index, "elapsed time: ",
+                          elapsed_time, "fps: ", str(int(fps)))
+        else:
+            # print("video end")
+            break
+
+    elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
+    fps = num_frames / elapsed_time
+    print("fps", fps)
+    sess.close()
+    video_capture.stop()
+    cv2.destroyAllWindows()
+
+del video_capture
+
+coord=np.array(coord)
+np.save('Coordinates_labels.npy',coord)
